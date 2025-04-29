@@ -77,13 +77,4 @@ dependencies {
     implementation ("com.google.android.exoplayer:exoplayer:2.19.1")
     implementation ("com.github.bumptech.glide:glide:4.14.2")
     kapt("com.github.bumptech.glide:compiler:4.14.2")
-    implementation ("com.google.android.exoplayer:exoplayer:2.18.1")
-
-    implementation ("androidx.compose.ui:ui:1.3.0")
-    implementation ("androidx.compose.material3:material3:1.0.0-beta01")
-    implementation ("androidx.room:room-runtime:2.6.1")
-    kapt ("androidx.room:room-compiler:2.6.1")
-    implementation ("androidx.room:room-ktx:2.6.1")
-    annotationProcessor ("androidx.room:room-compiler:2.5.0")
-
 }
