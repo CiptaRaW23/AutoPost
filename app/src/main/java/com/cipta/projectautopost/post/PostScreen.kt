@@ -25,12 +25,19 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.cipta.projectautopost.data.ScheduledPost
+import com.cipta.projectautopost.viewmodel.ScheduledPostViewModel
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.ui.StyledPlayerView
 import java.util.Calendar
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostScreen(
-    navController: NavController
+    navController: NavController,
+    viewModel: ScheduledPostViewModel
 ) {
     var caption by remember { mutableStateOf("") }
     var videoUrl by remember { mutableStateOf("") }
@@ -40,6 +47,7 @@ fun PostScreen(
     var scheduledTime by remember { mutableStateOf<Calendar?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var scheduledTimeMillis by remember { mutableStateOf<Long?>(null) }
 
     val context = LocalContext.current
 
@@ -160,11 +168,45 @@ fun PostScreen(
                 Text("Atur Jadwal")
             }
 
+            // Output untuk tanggal dan waktu jadwal dipindahkan ke bawah tombol Atur Jadwal
+            scheduledTime?.let { calendar ->
+                Text(
+                    text = "Posting dijadwalkan pada: ${calendar.time}",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = {
-                    // Logika upload
+                    val scheduledTimeMillis = scheduledTime?.timeInMillis ?: System.currentTimeMillis()
+
+                    val mediaType = when {
+                        selectedImageUri != null -> "image"
+                        selectedVideoUri != null -> "video"
+                        videoUrl.isNotBlank() -> "video"
+                        else -> "text"
+                    }
+
+                    val mediaUri = selectedImageUri?.toString()
+                        ?: selectedVideoUri?.toString()
+                        ?: videoUrl.takeIf { it.isNotBlank() }
+
+                    // Simpan ke database
+                    viewModel.addScheduledPost(
+                        ScheduledPost(
+                            caption = caption,
+                            mediaUri = mediaUri,
+                            scheduledTimeMillis = scheduledTimeMillis,
+                            mediaType = mediaType,
+                            uploaded = false
+                        )
+                    )
+
+                    // Balik ke halaman sebelumnya
+                    navController.popBackStack()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = caption.isNotBlank() || videoUrl.isNotBlank() ||
@@ -186,14 +228,6 @@ fun PostScreen(
             }
         )
     }
-
-    scheduledTime?.let { calendar ->
-        Text(
-            text = "Posting dijadwalkan pada: ${calendar.time}",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
 }
 
 @Composable
@@ -211,29 +245,19 @@ fun ImagePreview(uri: Uri) {
 
 @Composable
 fun VideoPlayer(uri: Uri) {
+    val context = LocalContext.current
+    val player = remember { ExoPlayer.Builder(context).build() }
+
+    LaunchedEffect(uri) {
+        player.setMediaItem(MediaItem.fromUri(uri))
+        player.prepare()
+        player.play()
+    }
+
     AndroidView(
-        factory = { ctx ->
-            VideoView(ctx).apply {
-                setVideoURI(uri)
-                val mediaController = MediaController(ctx)
-                mediaController.setAnchorView(this)
-                setMediaController(mediaController)
-                setOnPreparedListener { mp ->
-                    // Hitung rasio
-                    val videoWidth = mp.videoWidth
-                    val videoHeight = mp.videoHeight
-                    val viewWidth = width
-                    val viewHeight = height
-
-                    val scaleX = viewWidth.toFloat() / videoWidth
-                    val scaleY = viewHeight.toFloat() / videoHeight
-
-                    val scale = maxOf(scaleX, scaleY)
-                    this.scaleX = scale
-                    this.scaleY = scale
-
-                    start()
-                }
+        factory = { context ->
+            StyledPlayerView(context).apply {
+                this.player = player
             }
         },
         modifier = Modifier.fillMaxSize()
